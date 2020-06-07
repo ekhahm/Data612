@@ -1,0 +1,124 @@
+---
+title: "Data6012 project 1"
+author: "Eunkyu Hahm"
+date: "6/7/2020"
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: TRUE
+      smooth_scroll: False
+    number_sections: true
+    theme: united
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Project 1
+
+## Hotel recommendation system
+This system recommends the chain hotesl to travelers. 
+
+## Dataset
+```{r}
+#Using toy dataset
+hotels <- matrix(c(4,4,4,3,5,4,4,3,3,5,2,3,3,4,2,4,3,4,5,4,5,5,2,5,4,NA,3,4,3,4,4,5,NA,2,2,3), ncol = 6, byrow = TRUE)
+colnames(hotels)<- c("Marriott","Hilton","Best Western", "Hyatt", "Intercontinental","Wyndham")
+rownames(hotels)<- c("user1","user2","user3","user4","user5","user6")
+hotels
+```
+
+## Separating training and test datasets
+```{r}
+training <- matrix(c(4,NA,4,3,5,4,4,3,NA,5,2,3,3,4,2,4,NA,4,NA,4,5,5,2,5,4,NA,3,NA,3,4,4,5,NA,2,2,NA),ncol = 6, byrow = TRUE)
+colnames(training)<-c("Marriott","Hilton","Best Western", "Hyatt", "Intercontinental","Wyndham")
+rownames(training)<- c("user1","user2","user3","user4","user5","user6")
+
+test <- c(5,4,3,4,3,3)
+```
+
+## Raw average (mean) rating
+```{r}
+raw_average <- mean(training, na.rm=TRUE)
+raw_average
+```
+
+## Calculating the RMSE
+
+RMSE - training dataset
+```{r}
+rmse_training <- sqrt(mean((training-raw_average)^2, na.rm= TRUE))
+rmse_training
+```
+
+RMSE - test dataset
+```{r}
+rmse_test <- sqrt(mean((test-raw_average)^2))
+rmse_test
+```
+
+## Calculating bias for each user and each item 
+training dataset  
+
+**user bias**
+```{r}
+user_mean <- rowMeans(training, na.rm= TRUE)
+user_bias <- user_mean-raw_average
+user_bias
+```
+
+**item bias**
+```{r}
+item_mean <- colMeans(training, na.rm = TRUE)
+item_bias <- item_mean- raw_average
+item_bias
+```
+
+## Calculating baseline predictors 
+every user-item combination. 
+
+```{r}
+baselineP <- function(n,m){
+  3.5+ user_bias[n]+item_bias[m]
+}
+baseline_predictor <- data.frame(matrix(NA, ncol=6, nrow=6))
+colnames(baseline_predictor)<- c("Marriott","Hilton","Best Western", "Hyatt", "Intercontinental","Wyndham")
+rownames(baseline_predictor)<- c("user1","user2","user3","user4","user5","user6")
+for (i in 1:6){
+  for(j in 1:6){
+    baseline_predictor[i,j] <- baselineP(i,j)
+  }
+}
+baseline_predictor
+```
+
+## Calculating RMSE for the baseline predictors
+Test dataset
+```{r}
+rmse_test_b <- sqrt(((test[1]-4.369565)^2 + (test[2]-4.369565)^2 +(test[3]-2.869565)^2 + (test[4]-3.536232)^2 +(test[5]-3.536232)^2 + (test[6]-3.569565)^2)/5)
+rmse_test_b
+```
+Training dataset
+```{r}
+a<- (training -baseline_predictor)^2
+a
+mean_a <- sum(colSums(a, na.rm=TRUE, dims= 1))/23
+rmse_training_b <- sqrt(mean_a)
+rmse_training_b
+```
+
+## Summurizing results
+Percentage of improvement of test dataset - 29.6%
+```{r}
+(1-(rmse_test_b/rmse_test))*100
+
+```
+
+Percentage of improvement of training dataset - 7.7%
+```{r}
+(1-(rmse_training_b/rmse_training))*100
+
+```
