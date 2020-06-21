@@ -1,0 +1,67 @@
+---
+title: "Data612 P3"
+author: "Eunkyu Hahm"
+date: "6/21/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project 3 | Matrix Factorization methods
+
+To implement a matrix factorization method—such as singular value decomposition (SVD) or Alternating Least Squares (ALS)—in the context of a recommender system.
+
+### 1. Load libraries
+```{r}
+library(recommenderlab)
+library(reshape2)
+library(knitr)
+library(tidyverse)
+```
+
+
+### 2. Load data and subset data
+```{r}
+data(MovieLense)
+MovieLense
+```
+
+Subsetting users have rated at least 50 movies and movies have been watched more than 100 times.
+```{r}
+ratings_m <- MovieLense[rowCounts(MovieLense)>50, colCounts(MovieLense)>100]
+ratings_m
+```
+
+### 3. train and test datasets
+
+```{r}
+#1 is users in train dataset, 0 is in test datset#
+which_train<- sample(x = c(1, 0), size = nrow(ratings_m),replace = TRUE, prob = c(0.8, 0.2))
+head(which_train)
+```
+Train dataset   
+Test dataset
+```{r}
+train_m <- ratings_m[which_train,]
+test_m <- ratings_m[!which_train,]
+train_m
+test_m
+```
+
+### 4. Singular Value Decomposition
+```{r}
+svd_model <- Recommender(data=train_m, method="SVD", parameter= list(k=20))
+svd_model
+```
+
+```{r}
+svd_predict <- predict(object = svd_model, newdata = test_m, n=6)
+svd_predict
+```
+Recommendation for the first five user. 
+```{r}
+svd_predict@items[1:5]
+```
+
