@@ -1,0 +1,96 @@
+---
+title: "Data612 project 5"
+author: "Eunkyu Hahm"
+date: "7/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## DATA 643 Project 5 | Implementing a Recommender System on Spark
+
+```{r}
+library(sparklyr)
+library(recommenderlab)
+library(tidyverse)
+library(kableExtra)
+```
+
+## Distributed Recommender System
+
+```{r}
+spark_install(version = "2.1.0")
+
+data(MovieLense)
+
+movielense <- MovieLense
+movies <- as(movielense,"data.frame")
+head(movies)
+```
+
+```{r}
+movies1 <- movies %>%
+  mutate(user = as.numeric(user)) %>%
+  mutate(item = as.numeric(item))
+head(movies1)
+```
+
+```{r}
+sc <- spark_connect(master = "local")
+```
+
+```{r}
+start_spark <- Sys.time()
+# copy data to spark
+rating_matrix <- sdf_copy_to(sc, movies1, "sdf_rating_matrix", overwrite = TRUE)
+
+# split dataset in spark
+partitioned <- rating_matrix %>% 
+  sdf_random_split(training = 0.8, testing = 0.2)
+
+#fit the model and make prediction
+als_model <- ml_als(partitioned$training, max_iter = 5)
+als_prd <- ml_transform(als_model, partitioned$testing) %>% collect()
+
+end_spark <- Sys.time()
+spark_disconnect(sc)
+```
+
+## Recommender system from previous projects
+```{r}
+start_prv <- Sys.time()
+ratings_m <- MovieLense[rowCounts(MovieLense)>50, colCounts(MovieLense)>100]
+scheme <- evaluationScheme(ratings_m, method = "split", train = 0.9, given = 15, goodRating = 3.5)
+als_train <- Recommender(getData(scheme, "train"), "ALS")
+als_pred <- predict(als_train, getData(scheme, "known"), type= "ratings")
+
+end_prv <- Sys.time()
+```
+
+## Evaluation 
+### 1. RMSE 
+```{r}
+rmse_ALS <- calcPredictionAccuracy(als_pred, getData(scheme, "unknown"))
+
+rmse <- function(o, p) {
+  round((sqrt(mean((o - p)^2, na.rm = TRUE))), 2)
+}
+
+rmse_spark <- rmse(als_prd$rating, als_prd$prediction)
+kable(cbind(rmse_ALS[[1]], rmse_spark), col.names = c("recommenderlab", "sparklyr"))%>%
+  kable_styling("striped", position = "right", font_size = 10)
+```
+
+### 2. Processing time
+```{r}
+kable(cbind(end_prv-start_prv, end_spark-start_spark), col.names = c("recommenderlab", "sparklyr"))%>%
+  kable_styling("striped", position = "right", font_size = 10)
+
+```
+
+
+## Conclusion
+### **For your given recommender system’s data, algorithm(s), and (envisioned) implementation, at what point would you see moving to a distributed platform such as Spark becoming necessary?**
+Building a recommender system through Spark is a great experience of learning something new to me. According to the accuracy evaluation by comparing rmse, They are almost same, but little improvement was observed when the Spark was in use. In terms of processing time, Using Spark took a little more time while to run the program with when loading packages. Also, the observed processing time was not improved when using Spark. I think, however, there should be advantages on efficiency in dealing with larger datasets. 
